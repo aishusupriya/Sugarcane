@@ -3,8 +3,10 @@ from typing import Optional
 
 from fastapi import FastAPI, File, Form, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from model_service import DiseaseModel
 
-app = FastAPI(title="AgriScan Mock API", version="0.1.0")
+app = FastAPI(title="AgriScan Disease Inference API", version="1.0.0")
+model = DiseaseModel()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173"],
@@ -26,7 +28,7 @@ DISEASES = {
 
 @app.get("/health")
 def health_check():
-    return {"status": "ok", "service": "agriscan-mock-api"}
+    return {"status": "ok", "service": "agriscan-inference-api", "model_loaded": model.available}
 
 
 @app.post("/predict")
@@ -35,7 +37,17 @@ async def predict(
     thermal_image: Optional[UploadFile] = File(None),
     field_name: str = Form("Northfield farm"),
 ):
-    # Deterministic demo response; replace this body with model inference later.
+    if model.available:
+        prediction = model.predict(rgb_image.file)
+        return {
+            **prediction,
+            "thermal_available": thermal_image is not None,
+            "field_name": field_name,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "filename": rgb_image.filename,
+        }
+
+    # Local fallback keeps the demo usable before a trained checkpoint is installed.
     disease = "Smut" if "smut" in (rgb_image.filename or "").lower() else "Rust"
     return {
         "disease": disease,

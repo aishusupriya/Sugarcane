@@ -7,6 +7,7 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
     proxy: {
+      '/predict': 'http://127.0.0.1:8000',
       '/admin': 'http://127.0.0.1:8000',
       '/api': 'http://127.0.0.1:8000',
       '/media': 'http://127.0.0.1:8000',

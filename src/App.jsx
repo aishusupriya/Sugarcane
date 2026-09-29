@@ -141,6 +141,17 @@ function profileForFilename(filename) {
   return demoProfile;
 }
 
+function profileFromPrediction(prediction) {
+  const fallback = profileForFilename(prediction.disease || "");
+  return {
+    ...fallback,
+    name: prediction.disease || fallback.name,
+    severity: prediction.severity || fallback.severity,
+    confidence: Math.round((prediction.confidence || 0) * 1000) / 10,
+    steps: (prediction.treatment || fallback.steps.map(([label, detail]) => `${label}: ${detail}`)).map((step) => [step, step]),
+  };
+}
+
 async function persistScanData(image, thermalImage, profile) {
   try {
     const form = new FormData();
@@ -193,13 +204,24 @@ function App() {
   useEffect(() => {
     if (!analyzing) return undefined;
     const started = Date.now();
-    const timer = setInterval(() => {
+    const timer = setInterval(async () => {
       const percent = Math.min(100, Math.round((Date.now() - started) / 24));
       setProgress(percent);
       if (percent === 100) {
         clearInterval(timer);
         setAnalyzing(false);
-        const profile = profileForFilename(imageFilename);
+        let profile = profileForFilename(imageFilename);
+        const apiUrl = import.meta.env.VITE_API_URL;
+        if (apiUrl && image.startsWith("data:")) {
+          try {
+            const form = new FormData();
+            form.append("rgb_image", await (await fetch(image)).blob(), imageFilename || "sugarcane.jpg");
+            const response = await fetch(`${apiUrl}/predict`, { method: "POST", body: form });
+            if (response.ok) profile = profileFromPrediction(await response.json());
+          } catch {
+            // Keep the local demo result if the hosted inference API is unavailable.
+          }
+        }
         setResult(profile);
         persistScanData(image, thermalImage, profile);
       }
