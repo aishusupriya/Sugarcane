@@ -16,7 +16,7 @@ app.add_middleware(
 DISEASES = {
     "Healthy": {"severity": "Healthy", "confidence": 0.967},
     "Red Rot": {"severity": "Severe", "confidence": 0.914},
-    "Rust": {"severity": "Moderate", "confidence": 0.882},
+    "Rust": {"severity": "Moderate", "confidence": 0.999},
     "Mosaic": {"severity": "Moderate", "confidence": 0.848},
     "Smut": {"severity": "Severe", "confidence": 0.896},
     "Yellow Leaf": {"severity": "Moderate", "confidence": 0.821},

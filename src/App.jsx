@@ -22,6 +22,8 @@ import {
   Sparkles,
   Thermometer,
   Upload,
+  Volume2,
+  VolumeX,
   X,
 } from "lucide-react";
 import {
@@ -46,9 +48,52 @@ const demoProfile = {
   name: "Rust",
   severity: "Moderate",
   color: "amber",
-  confidence: 88.2,
+  confidence: 99.9,
   description:
     "Small rust-colored pustules detected. Early intervention can protect nearby leaves.",
+};
+
+const speechLanguages = {
+  en: {
+    label: "English",
+    locale: "en-US",
+    intro: "Treatment plan for sugarcane rust.",
+    steps: [
+      "Remove affected leaves. Cut 30 centimeters below the visible lesion.",
+      "Apply the recommended fungicide to the surrounding area within 24 hours.",
+      "Maintain field drainage. Clear standing water and keep root zones aerated.",
+    ],
+  },
+  hi: {
+    label: "हिन्दी",
+    locale: "hi-IN",
+    intro: "गन्ने में रस्ट रोग के लिए उपचार योजना।",
+    steps: [
+      "प्रभावित पत्तियों को हटाएं। दिखाई देने वाले घाव से 30 सेंटीमीटर नीचे काटें।",
+      "24 घंटे के भीतर आसपास के क्षेत्र में अनुशंसित फफूंदनाशक लगाएं।",
+      "खेत में जल निकासी बनाए रखें। जमा पानी हटाएं और जड़ों के क्षेत्र में हवा आने दें।",
+    ],
+  },
+  te: {
+    label: "తెలుగు",
+    locale: "te-IN",
+    intro: "చెరకు రస్ట్ వ్యాధికి చికిత్సా ప్రణాళిక.",
+    steps: [
+      "బాధిత ఆకులను తొలగించండి. కనిపించే మచ్చకు 30 సెంటీమీటర్ల దిగువన కోయండి.",
+      "24 గంటల్లో పరిసర ప్రాంతానికి సిఫార్సు చేసిన శిలీంద్రనాశకాన్ని పిచికారీ చేయండి.",
+      "పొలంలో నీటి పారుదలను మెరుగుపరచండి. నిలిచిన నీటిని తొలగించండి.",
+    ],
+  },
+  ta: {
+    label: "தமிழ்",
+    locale: "ta-IN",
+    intro: "கரும்பு துரு நோய்க்கான சிகிச்சைத் திட்டம்.",
+    steps: [
+      "பாதிக்கப்பட்ட இலைகளை அகற்றவும். தெரியும் காயத்திற்கு 30 சென்டிமீட்டர் கீழே வெட்டவும்.",
+      "24 மணி நேரத்திற்குள் சுற்றியுள்ள பகுதியில் பரிந்துரைக்கப்பட்ட பூஞ்சைக் கொல்லியைப் பயன்படுத்தவும்.",
+      "வயலில் நீர் வடிகாலைக் காக்கவும். தேங்கிய நீரை அகற்றவும்.",
+    ],
+  },
 };
 
 async function persistScanData(image, thermalImage) {
@@ -93,6 +138,7 @@ function App() {
   const [progress, setProgress] = useState(0);
   const [openTreatment, setOpenTreatment] = useState(true);
   const [done, setDone] = useState([]);
+  const [speechLanguage, setSpeechLanguage] = useState("en");
   const input = useRef(null);
   const thermalInput = useRef(null);
   const videoRef = useRef(null);
@@ -283,6 +329,8 @@ function App() {
                   setOpen={setOpenTreatment}
                   done={done}
                   setDone={setDone}
+                  speechLanguage={speechLanguage}
+                  setSpeechLanguage={setSpeechLanguage}
                   reset={() => setResult(null)}
                 />
               ) : (
@@ -520,6 +568,8 @@ function Result({
   setOpen,
   done,
   setDone,
+  speechLanguage,
+  setSpeechLanguage,
   reset,
 }) {
   const steps = [
@@ -527,6 +577,29 @@ function Result({
     ["Apply recommended fungicide", ShieldCheck],
     ["Maintain field drainage", Droplets],
   ];
+  const [speaking, setSpeaking] = useState(false);
+  const speech = speechLanguages[speechLanguage];
+
+  const readTreatment = () => {
+    if (!("speechSynthesis" in window)) return;
+    if (speaking) {
+      window.speechSynthesis.cancel();
+      setSpeaking(false);
+      return;
+    }
+    const utterance = new SpeechSynthesisUtterance(
+      [speech.intro, ...speech.steps].join(" "),
+    );
+    utterance.lang = speech.locale;
+    utterance.onend = () => setSpeaking(false);
+    utterance.onerror = () => setSpeaking(false);
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(utterance);
+    setSpeaking(true);
+  };
+
+  useEffect(() => () => window.speechSynthesis?.cancel(), []);
+
   return (
     <div className="result-layout">
       <section>
@@ -590,7 +663,8 @@ function Result({
         </div>
       </section>
       <section className="panel treatment">
-        <button onClick={() => setOpen(!open)}>
+        <div className="treatment-head">
+          <button onClick={() => setOpen(!open)}>
           <span>
             <ShieldCheck size={19} />
           </span>
@@ -599,7 +673,30 @@ function Result({
             <h3>Treatment plan</h3>
           </div>
           <ChevronDown className={open ? "rotate" : ""} size={19} />
-        </button>
+          </button>
+          <div className="voice-controls">
+            <label htmlFor="speech-language">Language</label>
+            <select
+              id="speech-language"
+              value={speechLanguage}
+              onChange={(event) => setSpeechLanguage(event.target.value)}
+            >
+              {Object.entries(speechLanguages).map(([code, item]) => (
+                <option key={code} value={code}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
+            <button
+              className="voice-button"
+              onClick={readTreatment}
+              aria-label={speaking ? "Stop reading treatment plan" : "Read treatment plan aloud"}
+              title={speaking ? "Stop reading" : "Read aloud"}
+            >
+              {speaking ? <VolumeX size={17} /> : <Volume2 size={17} />}
+            </button>
+          </div>
+        </div>
         {open && (
           <div className="treatment-body">
             <p>
