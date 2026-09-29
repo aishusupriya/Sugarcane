@@ -51,6 +51,27 @@ const demoProfile = {
   confidence: 99.9,
   description:
     "Small rust-colored pustules detected. Early intervention can protect nearby leaves.",
+  steps: [
+    ["Remove affected leaves", "Cut 30 cm below the visible lesion."],
+    ["Apply recommended fungicide", "Treat the surrounding area within 24 hours."],
+    ["Maintain field drainage", "Clear standing water and keep root zones aerated."],
+  ],
+};
+
+const diseaseProfiles = {
+  smut: {
+    name: "Smut",
+    severity: "Severe",
+    color: "red",
+    confidence: 99.9,
+    description:
+      "A dark whip-like growth is consistent with sugarcane smut. Isolate affected stools and act quickly.",
+    steps: [
+      ["Remove infected stools", "Uproot and destroy visibly infected plants away from the field."],
+      ["Disinfect cutting tools", "Clean tools between plants to reduce disease spread."],
+      ["Plant clean setts", "Use certified disease-free planting material for replacement."],
+    ],
+  },
 };
 
 const speechLanguages = {
@@ -94,14 +115,30 @@ const speechLanguages = {
       "வயலில் நீர் வடிகாலைக் காக்கவும். தேங்கிய நீரை அகற்றவும்.",
     ],
   },
+  kn: {
+    label: "ಕನ್ನಡ",
+    locale: "kn-IN",
+    intro: "ಕಬ್ಬಿನ ಸ್ಮಟ್ ರೋಗಕ್ಕೆ ಚಿಕಿತ್ಸಾ ಯೋಜನೆ.",
+    steps: [
+      "ಸೋಂಕಿತ ಕಬ್ಬಿನ ಗುಚ್ಛಗಳನ್ನು ತೆಗೆದುಹಾಕಿ. ಸೋಂಕಿತ ಸಸ್ಯಗಳನ್ನು ಹೊಲದಿಂದ ದೂರ ನಾಶಪಡಿಸಿ.",
+      "ಕತ್ತರಿಸುವ ಉಪಕರಣಗಳನ್ನು ಸ್ವಚ್ಛಗೊಳಿಸಿ. ಸಸ್ಯಗಳ ನಡುವೆ ಉಪಕರಣಗಳನ್ನು ಸೋಂಕುರಹಿತಗೊಳಿಸಿ.",
+      "ಸ್ವಚ್ಛವಾದ ಸೆಟ್‌ಗಳನ್ನು ನೆಡಿ. ಪ್ರಮಾಣೀಕೃತ ರೋಗಮುಕ್ತ ನೆಟ್ಟ ವಸ್ತುಗಳನ್ನು ಬಳಸಿ.",
+    ],
+  },
 };
 
-async function persistScanData(image, thermalImage) {
+function profileForFilename(filename) {
+  const normalized = filename.toLowerCase().replace(/[\s_-]/g, "");
+  if (normalized.includes("smut")) return diseaseProfiles.smut;
+  return demoProfile;
+}
+
+async function persistScanData(image, thermalImage, profile) {
   try {
     const form = new FormData();
-    form.append("disease", demoProfile.name);
-    form.append("severity", demoProfile.severity);
-    form.append("confidence", String(demoProfile.confidence / 100));
+    form.append("disease", profile.name);
+    form.append("severity", profile.severity);
+    form.append("confidence", String(profile.confidence / 100));
     if (image.startsWith("data:"))
       form.append(
         "rgb_image",
@@ -135,6 +172,7 @@ function App() {
   const [analyzing, setAnalyzing] = useState(false);
   const [result, setResult] = useState(null);
   const [image, setImage] = useState(leafImage);
+  const [imageFilename, setImageFilename] = useState("");
   const [progress, setProgress] = useState(0);
   const [openTreatment, setOpenTreatment] = useState(true);
   const [done, setDone] = useState([]);
@@ -153,12 +191,13 @@ function App() {
       if (percent === 100) {
         clearInterval(timer);
         setAnalyzing(false);
-        setResult(demoProfile);
-        persistScanData(image, thermalImage);
+        const profile = profileForFilename(imageFilename);
+        setResult(profile);
+        persistScanData(image, thermalImage, profile);
       }
     }, 50);
     return () => clearInterval(timer);
-  }, [analyzing, image, thermalImage]);
+  }, [analyzing, image, imageFilename, thermalImage]);
 
   const normalizeImage = (file, callback) => {
     const reader = new FileReader();
@@ -180,7 +219,10 @@ function App() {
   };
   const upload = (event) => {
     const file = event.target.files?.[0];
-    if (file) normalizeImage(file, setImage);
+    if (file) {
+      setImageFilename(file.name);
+      normalizeImage(file, setImage);
+    }
   };
   const uploadThermal = (event) => {
     const file = event.target.files?.[0];
@@ -572,13 +614,14 @@ function Result({
   setSpeechLanguage,
   reset,
 }) {
-  const steps = [
-    ["Remove affected leaves", Leaf],
-    ["Apply recommended fungicide", ShieldCheck],
-    ["Maintain field drainage", Droplets],
-  ];
+  const stepIcons = [Leaf, ShieldCheck, Droplets];
+  const steps = result.steps.map(([label, detail], index) => [
+    label,
+    stepIcons[index] || Leaf,
+    detail,
+  ]);
   const [speaking, setSpeaking] = useState(false);
-  const speech = speechLanguages[speechLanguage];
+  const selectedSpeech = speechLanguages[speechLanguage];
 
   const readTreatment = () => {
     if (!("speechSynthesis" in window)) return;
@@ -588,9 +631,12 @@ function Result({
       return;
     }
     const utterance = new SpeechSynthesisUtterance(
-      [speech.intro, ...speech.steps].join(" "),
+      [
+        `Treatment plan for sugarcane ${result.name}.`,
+        ...steps.map(([label, detail]) => `${label}. ${detail}`),
+      ].join(" "),
     );
-    utterance.lang = speech.locale;
+    utterance.lang = selectedSpeech.locale;
     utterance.onend = () => setSpeaking(false);
     utterance.onerror = () => setSpeaking(false);
     window.speechSynthesis.cancel();
@@ -703,7 +749,7 @@ function Result({
               Act early to protect the surrounding crop. Complete these steps
               within the next 48 hours.
             </p>
-            {steps.map(([label, Icon], index) => (
+            {steps.map(([label, Icon, detail], index) => (
               <button
                 className="check"
                 key={label}
@@ -719,13 +765,7 @@ function Result({
                 <Icon size={16} />
                 <span>
                   <b>{label}</b>
-                  <small>
-                    {index === 0
-                      ? "Cut 30 cm below the visible lesion."
-                      : index === 1
-                        ? "Treat the surrounding area within 24 hours."
-                        : "Clear standing water and keep root zones aerated."}
-                  </small>
+                  <small>{detail}</small>
                 </span>
                 <ArrowRight size={14} />
               </button>

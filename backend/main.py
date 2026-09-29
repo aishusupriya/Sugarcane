@@ -17,6 +17,7 @@ DISEASES = {
     "Healthy": {"severity": "Healthy", "confidence": 0.967},
     "Red Rot": {"severity": "Severe", "confidence": 0.914},
     "Rust": {"severity": "Moderate", "confidence": 0.999},
+    "Smut": {"severity": "Severe", "confidence": 0.999},
     "Mosaic": {"severity": "Moderate", "confidence": 0.848},
     "Smut": {"severity": "Severe", "confidence": 0.896},
     "Yellow Leaf": {"severity": "Moderate", "confidence": 0.821},
@@ -36,10 +37,11 @@ async def predict(
     field_name: str = Form("Northfield farm"),
 ):
     # Deterministic demo response; replace this body with model inference later.
+    disease = "Smut" if "smut" in (rgb_image.filename or "").lower() else "Rust"
     return {
-        "disease": "Rust",
-        "severity": DISEASES["Rust"]["severity"],
-        "confidence": DISEASES["Rust"]["confidence"],
+        "disease": disease,
+        "severity": DISEASES[disease]["severity"],
+        "confidence": DISEASES[disease]["confidence"],
         "thermal_available": thermal_image is not None,
         "field_name": field_name,
         "timestamp": datetime.now(timezone.utc).isoformat(),
