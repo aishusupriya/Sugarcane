@@ -19,7 +19,6 @@ DISEASES = {
     "Rust": {"severity": "Moderate", "confidence": 0.999},
     "Smut": {"severity": "Severe", "confidence": 0.999},
     "Mosaic": {"severity": "Moderate", "confidence": 0.848},
-    "Smut": {"severity": "Severe", "confidence": 0.896},
     "Yellow Leaf": {"severity": "Moderate", "confidence": 0.821},
     "Wilt": {"severity": "Severe", "confidence": 0.875},
 }
@@ -45,10 +44,18 @@ async def predict(
         "thermal_available": thermal_image is not None,
         "field_name": field_name,
         "timestamp": datetime.now(timezone.utc).isoformat(),
-        "treatment": [
-            "Remove affected leaves",
-            "Apply recommended fungicide",
-            "Maintain field drainage",
-        ],
+        "treatment": (
+            [
+                "Remove infected stools",
+                "Disinfect cutting tools",
+                "Plant clean setts",
+            ]
+            if disease == "Smut"
+            else [
+                "Remove affected leaves",
+                "Apply recommended fungicide",
+                "Maintain field drainage",
+            ]
+        ),
         "filename": rgb_image.filename,
     }

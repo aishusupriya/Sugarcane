@@ -127,6 +127,14 @@ const speechLanguages = {
   },
 };
 
+const localizedDiseaseText = {
+  en: { Rust: "rust", Smut: "smut" },
+  hi: { Rust: "रस्ट", Smut: "स्मट" },
+  te: { Rust: "రస్ట్", Smut: "స్మట్" },
+  ta: { Rust: "துரு", Smut: "கரும்பு அழுகல்" },
+  kn: { Rust: "ತುಕ್ಕು ರೋಗ", Smut: "ಸ್ಮಟ್ ರೋಗ" },
+};
+
 function profileForFilename(filename) {
   const normalized = filename.toLowerCase().replace(/[\s_-]/g, "");
   if (normalized.includes("smut")) return diseaseProfiles.smut;
@@ -632,8 +640,11 @@ function Result({
     }
     const utterance = new SpeechSynthesisUtterance(
       [
-        `Treatment plan for sugarcane ${result.name}.`,
-        ...steps.map(([label, detail]) => `${label}. ${detail}`),
+        selectedSpeech.intro.replace(
+          /rust|रस्ट|రస్ట్|துரு|ತುಕ್ಕು ರೋಗ|ಸ್ಮಟ್ ರೋಗ/gi,
+          localizedDiseaseText[speechLanguage][result.name],
+        ),
+        ...selectedSpeech.steps,
       ].join(" "),
     );
     utterance.lang = selectedSpeech.locale;
